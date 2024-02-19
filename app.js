@@ -5,6 +5,16 @@ let canvas, context;
 const movementThreshold = 55; // Sensitivity for movement detection
 let trackedObject = { tracking: false, class: '', bbox: [] };
 
+
+let ws = new WebSocket('ws://your-server-address');
+ws.onopen = function() {
+    console.log('WebSocket connection established');
+};
+ws.onerror = function(error) {
+    console.error('WebSocket Error:', error);
+};
+
+
 window.onload = async function() {
     video = document.getElementById('webcam');
     canvas = document.getElementById('canvas');
@@ -85,28 +95,43 @@ function detectMovement(currentData, previousData) {
 }
 
 function highlightPredictions(predictions) {
-    // Clear the canvas or optionally redraw the video frame for background
     context.clearRect(0, 0, canvas.width, canvas.height);
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     if (predictions.length === 0) return;
 
-    // Find the largest prediction by area (width * height)
     const largestPrediction = predictions.reduce((prev, current) => {
         const prevArea = (prev.bbox[2] - prev.bbox[0]) * (prev.bbox[3] - prev.bbox[1]);
         const currentArea = (current.bbox[2] - current.bbox[0]) * (current.bbox[3] - current.bbox[1]);
         return prevArea > currentArea ? prev : current;
     });
 
-    // Draw bounding box and label for the largest prediction
     const [x, y, width, height] = largestPrediction.bbox;
+    const centerX = x + width / 2;
+    const centerY = y + height / 2;
+
+    // Convert to servo angles
+    const servoX = interp(centerX, 0, canvas.width, 180, 0);
+    const servoY = interp(centerY, 0, canvas.height, 0, 180);
+
+    // Send command via WebSocket
+    if (ws.readyState === WebSocket.OPEN) {
+        const command = `ServoX${servoX}ServoY${servoY}`;
+        ws.send(command);
+    }
+
+    // Drawing the bounding box and label
     context.strokeStyle = 'red';
     context.lineWidth = 2;
     context.strokeRect(x, y, width, height);
-
     context.fillStyle = 'red';
     context.fillText(largestPrediction.class + ' - ' + Math.round(largestPrediction.score * 100) / 100, x, y > 10 ? y - 5 : 10);
 }
+
+function interp(value, fromLow, fromHigh, toLow, toHigh) {
+    return (value - fromLow) * (toHigh - toLow) / (fromHigh - fromLow) + toLow;
+}
+
 
 function selectObjectToTrack(predictions) {
     // Example: Select the largest object to track
