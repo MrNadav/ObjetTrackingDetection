@@ -135,11 +135,10 @@ function interp(value, fromLow, fromHigh, toLow, toHigh) {
 
 function selectObjectToTrack(predictions) {
     // Example: Select the largest object to track
-    return predictions.reduce((prev, current) => {
-        const prevArea = (prev.bbox[2]) * (prev.bbox[3]);
-        const currentArea = (current.bbox[2]) * (current.bbox[3]);
-        return prevArea > currentArea ? prev : current;
-    });
+    return Math.max(
+        (predictions.prev.bbox[2]) * (predictions.prev.bbox[3]),
+        (predictions.current.bbox[2]) * (predictions.current.bbox[3])
+    );
 }
 
 function overlap(bbox1, bbox2) {
